@@ -1,0 +1,235 @@
+<main class="page">
+  @if (!isAuthenticated()) {
+    <section class="auth-shell">
+      <div class="auth-glow"></div>
+      <p-card class="auth-card">
+        <span class="auth-badge">Finance Assistant MVP</span>
+        <h1>{{ title }}</h1>
+        <p class="auth-subtitle">
+          Sign in to open your cabinet and start entering expenses or uploading receipts.
+        </p>
+
+        <div class="auth-form">
+          <label for="loginName">Your name</label>
+          <input
+            id="loginName"
+            name="loginName"
+            pInputText
+            [(ngModel)]="loginName"
+            placeholder="Type any name (MVP demo)"
+          />
+
+          <button
+            pButton
+            data-testid="login-button"
+            type="button"
+            label="Continue"
+            icon="pi pi-sign-in"
+            [disabled]="!loginName.trim()"
+            (click)="login()"
+          ></button>
+        </div>
+
+        <p class="auth-footnote">
+          Demo mode: no backend, no persistence, instant local preview only.
+        </p>
+      </p-card>
+    </section>
+  } @else {
+    <section class="workspace" [class.workspace--menu-closed]="!isMenuOpen()">
+      <aside class="cabinet" [class.cabinet--closed]="!isMenuOpen()">
+        <div class="cabinet-header">
+          <span class="cabinet-logo"><i class="pi pi-wallet"></i></span>
+          <div>
+            <span class="cabinet-title">Cabinet</span>
+            <small>Personal workspace</small>
+          </div>
+        </div>
+
+        <nav class="cabinet-nav">
+          <button
+            pButton
+            type="button"
+            class="p-button-text cabinet-link cabinet-link--active"
+            icon="pi pi-home"
+            label="Overview"
+          ></button>
+          <button
+            pButton
+            type="button"
+            class="p-button-text cabinet-link"
+            icon="pi pi-wallet"
+            label="Expenses"
+          ></button>
+          <button
+            pButton
+            type="button"
+            class="p-button-text cabinet-link"
+            icon="pi pi-chart-bar"
+            label="Reports"
+          ></button>
+          <button
+            pButton
+            type="button"
+            class="p-button-text cabinet-link"
+            icon="pi pi-cog"
+            label="Settings"
+          ></button>
+        </nav>
+
+        <div class="cabinet-footer">
+          <span>Logged in as</span>
+          <strong>{{ currentUser() }}</strong>
+        </div>
+      </aside>
+
+      <section class="chat">
+        <header class="chat-header">
+          <div class="chat-header-left">
+            <button
+              pButton
+              type="button"
+              class="p-button-text p-button-secondary header-icon-btn"
+              icon="pi pi-bars"
+              aria-label="Toggle menu"
+              (click)="toggleMenu()"
+            ></button>
+
+            <div class="chat-header-copy">
+              <h2>Dashboard Chat</h2>
+              <p>Frontend-only MVP. Messages are stored in memory only.</p>
+            </div>
+          </div>
+
+          <div class="chat-header-right">
+            <span class="env-pill">Dark Mode</span>
+            <button
+              pButton
+              type="button"
+              class="p-button-text p-button-secondary header-icon-btn"
+              icon="pi pi-sign-out"
+              aria-label="Logout"
+              (click)="logout()"
+            ></button>
+          </div>
+        </header>
+
+        <section class="quick-cards">
+          <article class="quick-card">
+            <p>Total this month</p>
+            <strong>₴ 0</strong>
+          </article>
+          <article class="quick-card">
+            <p>Receipts uploaded</p>
+            <strong>{{ messages().length }}</strong>
+          </article>
+          <article class="quick-card">
+            <p>Pending files</p>
+            <strong>{{ pendingFiles().length }}</strong>
+          </article>
+        </section>
+
+        <section class="chat-messages" data-testid="messages-container">
+          @if (messages().length === 0) {
+            <div class="empty-state">
+              <i class="pi pi-comments"></i>
+              <p>Write a message or drop files below. Your inputs will appear here.</p>
+            </div>
+          } @else {
+            @for (message of messages(); track message.id) {
+              <article class="chat-message">
+                @if (message.text) {
+                  <p class="message-text">{{ message.text }}</p>
+                }
+
+                @if (message.files.length > 0) {
+                  <div class="message-files">
+                    @for (fileName of message.files; track fileName) {
+                      <span class="file-chip">
+                        <i class="pi pi-file"></i>
+                        {{ fileName }}
+                      </span>
+                    }
+                  </div>
+                }
+
+                <time>{{ message.createdAt }}</time>
+              </article>
+            }
+          }
+        </section>
+
+        <form class="composer" (submit)="sendMessage($event)">
+          <input
+            #fileInput
+            class="hidden-file-input"
+            type="file"
+            multiple
+            (change)="onFileInputChange(fileInput)"
+          />
+
+          <div
+            class="dropzone"
+            [class.dropzone--active]="isDropzoneActive()"
+            (dragover)="onDragOver($event)"
+            (dragleave)="onDragLeave($event)"
+            (drop)="onDrop($event)"
+          >
+            <i class="pi pi-cloud-upload"></i>
+            <span>Drop files here or attach them manually</span>
+            <button
+              pButton
+              type="button"
+              class="p-button-text"
+              icon="pi pi-paperclip"
+              label="Attach files"
+              (click)="fileInput.click()"
+            ></button>
+          </div>
+
+          @if (pendingFiles().length > 0) {
+            <ul class="pending-files">
+              @for (
+                file of pendingFiles();
+                track file.name + ':' + file.size + ':' + file.lastModified;
+                let index = $index
+              ) {
+                <li>
+                  <span>{{ file.name }}</span>
+                  <button
+                    pButton
+                    type="button"
+                    class="p-button-rounded p-button-text p-button-secondary"
+                    icon="pi pi-times"
+                    aria-label="Remove file"
+                    (click)="removePendingFile(index)"
+                  ></button>
+                </li>
+              }
+            </ul>
+          }
+
+          <textarea
+            name="draftMessage"
+            pInputTextarea
+            [(ngModel)]="draftMessage"
+            rows="3"
+            placeholder="Message the assistant about a new expense..."
+            data-testid="message-input"
+          ></textarea>
+
+          <div class="composer-actions">
+            <button
+              pButton
+              data-testid="send-button"
+              type="submit"
+              label="Send"
+              icon="pi pi-send"
+              [disabled]="!draftMessage.trim() && pendingFiles().length === 0"
+            ></button>
+          </div>
+        </form>
+      </section>
+    </section>
+  }
+</main>
